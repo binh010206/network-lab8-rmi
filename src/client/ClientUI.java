@@ -1,3 +1,8 @@
+package client;
+
+import common.IDatabaseSync;
+import model.StudentRecord;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -8,9 +13,13 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.rmi.Naming;
+import java.util.*;
 import java.util.List;
 
-public class RMIClient extends JFrame {
+/**
+ * Giao diện người dùng cho ứng dụng RMI Client.
+ */
+public class ClientUI extends JFrame {
     private IDatabaseSync remote;
     private JComboBox<String> cbServer;
     private JButton btnConnect;
@@ -20,12 +29,12 @@ public class RMIClient extends JFrame {
     private DefaultTableModel model;
     private JTable table;
 
-    public RMIClient() {
-        initModernUI();
+    public ClientUI() {
+        initUI();
         connect();
     }
 
-    private void initModernUI() {
+    private void initUI() {
         setTitle("VKU RMI Client - Quản Trị Dữ Liệu Sinh Viên & Đồng Bộ Cụm Server");
         setSize(1020, 680);
         setMinimumSize(new Dimension(880, 560));
@@ -62,7 +71,7 @@ public class RMIClient extends JFrame {
 
         btnConnect = new JButton("Kết nối RMI");
         btnConnect.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnConnect.setBackground(new Color(37, 99, 235)); // Blue 600
+        btnConnect.setBackground(new Color(37, 99, 235));
         btnConnect.setForeground(Color.WHITE);
         btnConnect.setFocusPainted(false);
         btnConnect.setPreferredSize(new Dimension(115, 32));
@@ -73,8 +82,8 @@ public class RMIClient extends JFrame {
         lblStatusBadge = new JLabel("  ● Chưa kết nối  ");
         lblStatusBadge.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblStatusBadge.setOpaque(true);
-        lblStatusBadge.setBackground(new Color(254, 226, 226)); // Red 100
-        lblStatusBadge.setForeground(new Color(185, 28, 28)); // Red 700
+        lblStatusBadge.setBackground(new Color(254, 226, 226));
+        lblStatusBadge.setForeground(new Color(185, 28, 28));
         lblStatusBadge.setBorder(new LineBorder(new Color(252, 165, 165), 1, true));
         lblStatusBadge.setPreferredSize(new Dimension(180, 30));
         lblStatusBadge.setHorizontalAlignment(SwingConstants.CENTER);
@@ -84,22 +93,22 @@ public class RMIClient extends JFrame {
 
         JButton btnVerify = new JButton("🔍 Đối chiếu dữ liệu 3 Server");
         btnVerify.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnVerify.setBackground(new Color(124, 58, 237)); // Purple 600
+        btnVerify.setBackground(new Color(124, 58, 237));
         btnVerify.setForeground(Color.WHITE);
         btnVerify.setFocusPainted(false);
-        btnVerify.setPreferredSize(new Dimension(210, 32));
+        btnVerify.setPreferredSize(new Dimension(220, 32));
         btnVerify.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnVerify.addActionListener(e -> verifySync());
         topCard.add(btnVerify, BorderLayout.EAST);
 
         add(topCard, BorderLayout.NORTH);
 
-        // 2. Main Content (Left: Input Form Card, Right: Table Card)
+        // 2. Main Content
         JPanel contentPanel = new JPanel(new BorderLayout(12, 0));
         contentPanel.setOpaque(false);
         contentPanel.setBorder(new EmptyBorder(0, 15, 15, 15));
 
-        // --- Left Form Card ---
+        // Form Card (Left)
         JPanel formCard = new JPanel(new BorderLayout(0, 12));
         formCard.setBackground(Color.WHITE);
         formCard.setPreferredSize(new Dimension(330, 0));
@@ -113,7 +122,6 @@ public class RMIClient extends JFrame {
         lblFormTitle.setForeground(new Color(30, 41, 59));
         formCard.add(lblFormTitle, BorderLayout.NORTH);
 
-        // Grid inputs (proper height, no ugly vertical stretching)
         JPanel inputGrid = new JPanel(new GridBagLayout());
         inputGrid.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
@@ -138,20 +146,19 @@ public class RMIClient extends JFrame {
 
         formCard.add(inputGrid, BorderLayout.CENTER);
 
-        // Form action buttons
         JPanel actionBox = new JPanel(new GridLayout(2, 2, 8, 8));
         actionBox.setOpaque(false);
 
-        JButton btnAdd = createButton("➕ Thêm Mới", new Color(22, 163, 74)); // Green 600
+        JButton btnAdd = createButton("➕ Thêm Mới", new Color(22, 163, 74));
         btnAdd.addActionListener(e -> addStudent());
 
-        JButton btnUpdate = createButton("✏️ Cập Nhật", new Color(217, 119, 6)); // Amber 600
+        JButton btnUpdate = createButton("✏️ Cập Nhật", new Color(217, 119, 6));
         btnUpdate.addActionListener(e -> updateStudent());
 
-        JButton btnDelete = createButton("❌ Xóa Bản Ghi", new Color(220, 38, 38)); // Red 600
+        JButton btnDelete = createButton("❌ Xóa Bản Ghi", new Color(220, 38, 38));
         btnDelete.addActionListener(e -> deleteStudent());
 
-        JButton btnClear = createButton("🧹 Làm Trắng", new Color(100, 116, 139)); // Slate 500
+        JButton btnClear = createButton("🧹 Làm Trắng", new Color(100, 116, 139));
         btnClear.addActionListener(e -> clearForm());
 
         actionBox.add(btnAdd);
@@ -162,7 +169,7 @@ public class RMIClient extends JFrame {
 
         contentPanel.add(formCard, BorderLayout.WEST);
 
-        // --- Right Table Card ---
+        // Table Card (Right)
         JPanel tableCard = new JPanel(new BorderLayout(0, 10));
         tableCard.setBackground(Color.WHITE);
         tableCard.setBorder(BorderFactory.createCompoundBorder(
@@ -179,7 +186,7 @@ public class RMIClient extends JFrame {
         JButton btnRefresh = new JButton("🔄 Làm mới bảng");
         btnRefresh.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         btnRefresh.setFocusPainted(false);
-        btnRefresh.addActionListener(e -> refresh());
+        btnRefresh.addActionListener(e -> refreshTable());
         tableHeaderBox.add(lblTableTitle, BorderLayout.WEST);
         tableHeaderBox.add(btnRefresh, BorderLayout.EAST);
         tableCard.add(tableHeaderBox, BorderLayout.NORTH);
@@ -263,7 +270,7 @@ public class RMIClient extends JFrame {
         int port = (idx == 0) ? 1099 : ((idx == 1) ? 1098 : 1097);
         btnConnect.setEnabled(false);
         lblStatusBadge.setText("  ● Đang kết nối...  ");
-        lblStatusBadge.setBackground(new Color(254, 243, 199)); // Amber 100
+        lblStatusBadge.setBackground(new Color(254, 243, 199));
         lblStatusBadge.setForeground(new Color(180, 83, 9));
 
         new Thread(() -> {
@@ -272,16 +279,16 @@ public class RMIClient extends JFrame {
                 String sId = remote.getServerId();
                 SwingUtilities.invokeLater(() -> {
                     lblStatusBadge.setText("  ● ĐÃ KẾT NỐI: " + sId + "  ");
-                    lblStatusBadge.setBackground(new Color(220, 252, 231)); // Green 100
+                    lblStatusBadge.setBackground(new Color(220, 252, 231));
                     lblStatusBadge.setForeground(new Color(22, 101, 52));
                     lblStatusBadge.setBorder(new LineBorder(new Color(134, 239, 172), 1, true));
                     btnConnect.setEnabled(true);
                 });
-                refresh();
+                refreshTable();
             } catch (Exception ex) {
                 SwingUtilities.invokeLater(() -> {
                     lblStatusBadge.setText("  ● LỖI KẾT NỐI PORT " + port + "  ");
-                    lblStatusBadge.setBackground(new Color(254, 226, 226)); // Red 100
+                    lblStatusBadge.setBackground(new Color(254, 226, 226));
                     lblStatusBadge.setForeground(new Color(185, 28, 28));
                     lblStatusBadge.setBorder(new LineBorder(new Color(252, 165, 165), 1, true));
                     btnConnect.setEnabled(true);
@@ -290,7 +297,7 @@ public class RMIClient extends JFrame {
         }).start();
     }
 
-    private void refresh() {
+    private void refreshTable() {
         if (remote == null) return;
         new Thread(() -> {
             try {
@@ -298,7 +305,14 @@ public class RMIClient extends JFrame {
                 SwingUtilities.invokeLater(() -> {
                     model.setRowCount(0);
                     for (StudentRecord r : list) {
-                        model.addRow(new Object[]{r.id, r.name, r.email, r.major, String.format("%.2f", r.gpa), r.originServer});
+                        model.addRow(new Object[]{
+                                r.getId(),
+                                r.getName(),
+                                r.getEmail(),
+                                r.getMajor(),
+                                String.format("%.2f", r.getGpa()),
+                                r.getOriginServer()
+                        });
                     }
                 });
             } catch (Exception ignored) {}
@@ -332,10 +346,10 @@ public class RMIClient extends JFrame {
             try {
                 if (remote.insert(r)) {
                     SwingUtilities.invokeLater(() -> {
-                        JOptionPane.showMessageDialog(this, "Thêm sinh viên thành công! Đang tự động Replication sang các Server khác.");
+                        JOptionPane.showMessageDialog(this, "Thêm sinh viên thành công! Đã tự động Replication sang cụm Server.");
                         clearForm();
                     });
-                    refresh();
+                    refreshTable();
                 } else {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Mã SV '" + id + "' đã tồn tại!"));
                 }
@@ -359,7 +373,7 @@ public class RMIClient extends JFrame {
                 try {
                     if (remote.update(r)) {
                         SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Cập nhật thành công!"));
-                        refresh();
+                        refreshTable();
                     } else {
                         SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Không tìm thấy Mã SV!"));
                     }
@@ -384,7 +398,7 @@ public class RMIClient extends JFrame {
                             JOptionPane.showMessageDialog(this, "Đã xóa sinh viên!");
                             clearForm();
                         });
-                        refresh();
+                        refreshTable();
                     }
                 } catch (Exception ignored) {}
             }).start();
@@ -405,14 +419,14 @@ public class RMIClient extends JFrame {
             String[] names = {"Server 1", "Server 2", "Server 3"};
             StringBuilder sb = new StringBuilder("=== KẾT QUẢ ĐỐI CHIẾU DỮ LIỆU CỤM 3 SERVER RMI ===\n\n");
             int matchCount = 0;
-            java.util.Map<String, java.util.Set<String>> serverRecords = new java.util.LinkedHashMap<>();
+            Map<String, Set<String>> serverRecords = new LinkedHashMap<>();
 
             for (int i = 0; i < 3; i++) {
                 try {
                     IDatabaseSync s = (IDatabaseSync) Naming.lookup("rmi://127.0.0.1:" + ports[i] + "/SyncService");
                     List<StudentRecord> list = s.getAll();
-                    java.util.Set<String> ids = new java.util.TreeSet<>();
-                    for (StudentRecord r : list) ids.add(r.id);
+                    Set<String> ids = new TreeSet<>();
+                    for (StudentRecord r : list) ids.add(r.getId());
                     serverRecords.put(names[i], ids);
                     sb.append(String.format("✔ %-10s (Cổng %d) : ONLINE  - %d bản ghi %s\n", names[i], ports[i], list.size(), ids));
                     matchCount++;
@@ -422,9 +436,9 @@ public class RMIClient extends JFrame {
             }
 
             if (matchCount >= 2) {
-                java.util.Set<String> base = null;
+                Set<String> base = null;
                 boolean matched = true;
-                for (java.util.Set<String> ids : serverRecords.values()) {
+                for (Set<String> ids : serverRecords.values()) {
                     if (base == null) base = ids;
                     else if (!base.equals(ids)) { matched = false; break; }
                 }
@@ -442,12 +456,5 @@ public class RMIClient extends JFrame {
             final String res = sb.toString();
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, res, "Báo cáo Đối chiếu Dữ liệu", JOptionPane.INFORMATION_MESSAGE));
         }).start();
-    }
-
-    public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
-        SwingUtilities.invokeLater(() -> new RMIClient().setVisible(true));
     }
 }
