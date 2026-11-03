@@ -90,6 +90,7 @@ public class DatabaseSyncImpl extends UnicastRemoteObject implements IDatabaseSy
     @Override
     public synchronized boolean delete(String id) {
         if (database.remove(id) != null) {
+            dao.deleteRecord(id);
             dao.saveAll(database.values());
             refresh();
             log("[CLIENT XÓA] Mã SV: " + id);
@@ -105,6 +106,7 @@ public class DatabaseSyncImpl extends UnicastRemoteObject implements IDatabaseSy
         log("[REPLICATION NHẬN] << Lệnh: " + action + " từ " + sender + " đối với Mã: " + r.getId());
         if ("DELETE".equalsIgnoreCase(action)) {
             database.remove(r.getId());
+            dao.deleteRecord(r.getId());
         } else {
             database.put(r.getId(), r);
         }
