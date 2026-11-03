@@ -1,6 +1,7 @@
  .root {-fx-font-family: "Segoe UI"; -fx-font-size: 13px; -fx-background-color: #f3f6fb; -fx-text-fill: #192b45;}
 .title {-fx-font-size: 29px; -fx-font-weight: bold; -fx-text-fill: #142b49;}
 .brand {-fx-text-fill: #127e75; -fx-font-weight: bold; -fx-font-size: 12px;}
+.address-panel {-fx-background-color: #e8eef7; -fx-background-radius: 9; -fx-padding: 12;}
 .badge {-fx-background-color: #e1f2ee; -fx-text-fill: #086457; -fx-padding: 12 18; -fx-background-radius: 9; -fx-font-weight: bold;}
 .stats {-fx-padding: 8 0; -fx-font-weight: bold; -fx-text-fill: #48627f;}
 .button {-fx-background-color: #156bba; -fx-text-fill: white; -fx-background-radius: 7; -fx-padding: 10 17; -fx-cursor: hand;}

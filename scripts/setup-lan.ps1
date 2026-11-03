@@ -24,7 +24,24 @@ $c=@{}
 Get-Content $localFile | ForEach-Object {if($_ -match '^([^#=]+)=(.*)$'){$c[$matches[1].Trim()]=$matches[2].Trim()}}
 Start-Service MongoDB
 $name="Lab8 RMI Server$Node LAN"
-$java=(Get-Command java -ErrorAction Stop).Source
-if(!(Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)){
- New-NetFirewallRule -DisplayName $name -Direction Inbound -Action Allow -Protocol TCP -LocalPort @([int]$c['registry.port'],[int]$c['object.port']) -LocalAddress $c['advertise.host'] -RemoteAddress LocalSubnet -Profile Public,Private -Program $java | Out-Null
+. (Join-Path $PSScriptRoot 'java-runtime.ps1')
+# Prefer the process actually listening for this server; F5 may use VS Code's JDK.
+$owners=@(Get-NetTCPConnection -State Listen -LocalPort ([int]$c['object.port']) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique)
+$java=$null
+if($owners.Count -eq 1){
+ $process=Get-CimInstance Win32_Process -Filter "ProcessId=$($owners[0])"
+ if($process.ExecutablePath -and [System.IO.Path]::GetFileName($process.ExecutablePath) -in @('java.exe','javaw.exe')){$java=$process.ExecutablePath}
+ else {throw 'Cong RMI dang duoc chuong trinh khac su dung. Dung chuong trinh do truoc khi thiet lap.'}
+}
+if(!$java){$java=Join-Path (Get-LabJavaHome -ProjectRoot $root) 'bin/java.exe'}
+$ruleArgs=@{
+ Enabled='True'; Direction='Inbound'; Action='Allow'; Protocol='TCP'
+ LocalPort=@([int]$c['registry.port'],[int]$c['object.port'])
+ LocalAddress=$c['advertise.host']; RemoteAddress='LocalSubnet'
+ Profile=@('Public','Private'); Program=$java
+}
+if(Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue){
+ Set-NetFirewallRule -DisplayName $name @ruleArgs
+} else {
+ New-NetFirewallRule -DisplayName $name @ruleArgs | Out-Null
 }

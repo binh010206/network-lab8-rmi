@@ -26,10 +26,12 @@ public final class Desktop extends Application {
   private volatile IDatabaseSync service;
   private ServerNode node;
   private final Label connection = new Label("Chưa kết nối"),
+      connectionTarget = new Label("Nhập IP và cổng của server cần kết nối."),
       stats = new Label("—"),
       feedback = new Label("Sẵn sàng"),
       title = new Label();
   private final TextArea logs = new TextArea();
+  private final VBox serverAddresses = new VBox(8);
   private final TableView<Change> table = new TableView<>();
   private final ObservableList<Change> data = FXCollections.observableArrayList();
   private final TextField host = new TextField("127.0.0.1"),
@@ -62,8 +64,12 @@ public final class Desktop extends Application {
     host.setPromptText("IP máy chủ");
     port.setPrefWidth(90);
     host.setPrefWidth(180);
-    HBox connectBar = new HBox(10, new Label("Địa chỉ"), host, new Label("Cổng"), port, connect);
+    HBox connectBar =
+        new HBox(10, new Label("IP server"), host, new Label("Cổng client"), port, connect);
     connectBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+    connectionTarget.setWrapText(true);
+    serverAddresses.getStyleClass().add("address-panel");
+    serverAddresses.getChildren().add(new Label("Đang đọc thông tin IP và cổng…"));
     connection.getStyleClass().add("badge");
     stats.getStyleClass().add("stats");
     feedback.setWrapText(true);
@@ -143,9 +149,7 @@ public final class Desktop extends Application {
         new VBox(
             16,
             heading,
-            serverMode
-                ? new Label("Chế độ máy chủ • dữ liệu được lưu trực tiếp vào MongoDB")
-                : connectBar,
+            serverMode ? serverAddresses : new VBox(8, connectBar, connectionTarget),
             connection,
             stats,
             center,
@@ -188,7 +192,9 @@ public final class Desktop extends Application {
       io.execute(
           () -> {
             try {
-              node = new ServerNode(new Config(path));
+              Config config = new Config(path);
+              Platform.runLater(() -> showServerAddresses(config));
+              node = new ServerNode(config);
               service = node.service;
             } catch (Exception e) {
               error(e);
@@ -196,6 +202,50 @@ public final class Desktop extends Application {
           });
     } else connect();
     io.scheduleWithFixedDelay(this::poll, 0, 400, TimeUnit.MILLISECONDS);
+  }
+
+  private void showServerAddresses(Config config) {
+    Label hint =
+        new Label(
+            "Client nhập IP và cổng của server muốn kết nối. Có thể sao chép các ô bên dưới.");
+    hint.setWrapText(true);
+    serverAddresses
+        .getChildren()
+        .setAll(
+            hint,
+            addressRow(
+                config.get("server.id") + " • máy này",
+                config.get("advertise.host"),
+                config.number("registry.port")),
+            addressRow(
+                "Server còn lại", config.get("peer.host"), config.number("peer.registry.port")),
+            new Label(
+                "Cổng RMI máy này: "
+                    + config.number("object.port")
+                    + " • Client dùng tự động, không nhập vào ô Cổng client."));
+  }
+
+  private HBox addressRow(String caption, String address, int number) {
+    Label label = new Label(caption);
+    label.setPrefWidth(175);
+    TextField ip = new TextField(address);
+    ip.setEditable(false);
+    ip.setPrefWidth(180);
+    TextField registryPort = new TextField(Integer.toString(number));
+    registryPort.setEditable(false);
+    registryPort.setPrefWidth(85);
+    Button copy = new Button("Sao chép IP:cổng");
+    copy.setOnAction(
+        e -> {
+          var content = new javafx.scene.input.ClipboardContent();
+          content.putString(address + ":" + number);
+          javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+          feedback.setText("Đã sao chép " + address + ":" + number);
+        });
+    HBox row =
+        new HBox(10, label, new Label("IP"), ip, new Label("Cổng client"), registryPort, copy);
+    row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+    return row;
   }
 
   private void column(String title, java.util.function.Function<Change, String> value) {
@@ -223,6 +273,10 @@ public final class Desktop extends Application {
   private void connect() {
     if (connecting) return;
     final String address = host.getText().trim();
+    if (address.isEmpty()) {
+      feedback.setText("Nhập IP của server cần kết nối.");
+      return;
+    }
     final int number;
     try {
       number = Integer.parseInt(port.getText().trim());
@@ -237,6 +291,7 @@ public final class Desktop extends Application {
     ++generation;
     actions.forEach(b -> b.setDisable(true));
     connection.setText("Đang kết nối…");
+    connectionTarget.setText("Đang kết nối tới " + address + ":" + number);
     io.execute(
         () -> {
           try {
@@ -247,9 +302,13 @@ public final class Desktop extends Application {
             Platform.runLater(
                 () -> {
                   previous.clear();
+                  connectionTarget.setText(
+                      "Server đang dùng: " + address + ":" + number + " • Cổng client (Registry)");
                   feedback.setText("Đã kết nối " + address + ":" + number);
                 });
           } catch (Exception e) {
+            Platform.runLater(
+                () -> connectionTarget.setText("Chưa kết nối được " + address + ":" + number));
             error(e);
           } finally {
             Platform.runLater(() -> connecting = false);
