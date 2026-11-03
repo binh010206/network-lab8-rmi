@@ -1,0 +1,14 @@
+ .root {-fx-font-family: "Segoe UI"; -fx-font-size: 13px; -fx-background-color: #f3f6fb; -fx-text-fill: #192b45;}
+.title {-fx-font-size: 29px; -fx-font-weight: bold; -fx-text-fill: #142b49;}
+.brand {-fx-text-fill: #127e75; -fx-font-weight: bold; -fx-font-size: 12px;}
+.badge {-fx-background-color: #e1f2ee; -fx-text-fill: #086457; -fx-padding: 12 18; -fx-background-radius: 9; -fx-font-weight: bold;}
+.stats {-fx-padding: 8 0; -fx-font-weight: bold; -fx-text-fill: #48627f;}
+.button {-fx-background-color: #156bba; -fx-text-fill: white; -fx-background-radius: 7; -fx-padding: 10 17; -fx-cursor: hand;}
+.button:hover {-fx-background-color: #10528f;}.button:disabled {-fx-opacity: 0.45;}
+.text-field {-fx-background-color: white; -fx-border-color: #d9e2ed; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 10;}
+.text-field:focused {-fx-border-color: #168a80;}
+.table-view {-fx-background-color: white; -fx-border-color: #dce5ee; -fx-background-radius: 8;}
+.table-view .column-header-background,.table-view .column-header {-fx-background-color: #e8eef7;}
+.table-view .column-header .label {-fx-padding: 12 6; -fx-text-fill: #264969;}
+.table-row-cell {-fx-cell-size: 40px;}.table-row-cell:selected {-fx-background-color: #b9d8f6;}.table-row-cell:selected .text {-fx-fill: #142b49;}
+.text-area {-fx-font-family: "Consolas"; -fx-font-size: 12px;}.text-area .content {-fx-background-color: #ecf1f7;}

@@ -4,3 +4,7 @@
 *.db
 *.log
 bin/
+target/
+.tools/
+.data/
+config/*.local.properties

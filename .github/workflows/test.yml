@@ -1,0 +1,20 @@
+name: Java RMI integration
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongo1:
+        image: mongo:8.0.4
+        ports: ["27017:27017"]
+      mongo2:
+        image: mongo:8.0.4
+        ports: ["27018:27017"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn --batch-mode test -Dlab8.integration=true
