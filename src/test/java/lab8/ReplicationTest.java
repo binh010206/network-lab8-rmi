@@ -131,6 +131,17 @@ public class ReplicationTest {
       int count = restartedA.history().size();
       restartedA.receive(latest);
       assertEquals(count, restartedA.history().size());
+
+      // Re-export after an address change must advertise the new host and keep stored data.
+      n1.close();
+      n1 = null;
+      n1 = new ServerNode(c1.with(Map.of("advertise.host", "127.0.0.2")));
+      assertThrows(java.rmi.RemoteException.class, restartedA::snapshot);
+      IDatabaseSync moved =
+          (IDatabaseSync) LocateRegistry.getRegistry("127.0.0.2", 12099).lookup("SyncService");
+      assertTrue(moved.toString().contains("127.0.0.2:12101"), moved.toString());
+      assertEquals(count, moved.history().size());
+      await(() -> snap(moved).peerOnline() && snap(restartedB).peerOnline());
     } finally {
       if (n1 != null) n1.close();
       if (n2 != null) n2.close();

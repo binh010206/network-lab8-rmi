@@ -25,6 +25,16 @@ public final class Desktop extends Application {
           });
   private volatile IDatabaseSync service;
   private ServerNode node;
+  private final Object lifecycle = new Object();
+  private Config serverConfig;
+  private java.nio.file.Path localConfigPath;
+  private ServerConnections serverControls;
+  private long nextNetworkCheck;
+  private volatile boolean stopped;
+
+  private record ClientTarget(String host, int port) {}
+
+  private volatile ClientTarget clientTarget;
   private final Label connection = new Label("Chưa kết nối"),
       connectionTarget = new Label("Nhập IP và cổng của server cần kết nối."),
       stats = new Label("—"),
@@ -47,25 +57,21 @@ public final class Desktop extends Application {
   private final Set<String> changed = new HashSet<>();
   private boolean connecting, mutating;
   private String lastEvent;
-  private long generation;
+  private volatile long generation;
 
-  public void start(Stage stage) {
-    System.setProperty("sun.rmi.transport.tcp.responseTimeout", "2500");
-    System.setProperty("sun.rmi.transport.tcp.handshakeTimeout", "2500");
-    System.setProperty("sun.rmi.transport.connectionTimeout", "2500");
+  public void start(Stage stage) throws Exception {
+    RmiNetwork.configure();
     title.setText(serverMode ? "Trung tâm đồng bộ" : "Quản lý sinh viên");
     title.getStyleClass().add("title");
     Label brand = new Label("VKU  /  NETWORK LAB 08");
     brand.getStyleClass().add("brand");
-    VBox heading =
-        new VBox(8, brand, title, new Label("JAVA RMI  •  HAI MÁY CHỦ  •  HAI DATABASE ĐỘC LẬP"));
+    VBox heading = new VBox(8, brand, title);
     Button connect = new Button("Kết nối");
     connect.setOnAction(e -> connect());
     host.setPromptText("IP máy chủ");
     port.setPrefWidth(90);
     host.setPrefWidth(180);
-    HBox connectBar =
-        new HBox(10, new Label("IP server"), host, new Label("Cổng client"), port, connect);
+    HBox connectBar = new HBox(10, new Label("IP server"), host, new Label("Cổng"), port, connect);
     connectBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
     connectionTarget.setWrapText(true);
     serverAddresses.getStyleClass().add("address-panel");
@@ -80,7 +86,7 @@ public final class Desktop extends Application {
     column("Email", c -> c.student().email());
     column("Ngành", c -> c.student().major());
     column("GPA", c -> String.format(java.util.Locale.ROOT, "%.2f", c.student().gpa()));
-    column("Nguồn / phiên bản", c -> c.origin() + " / " + c.version());
+    column("Nguồn / phiên bản", c -> ServerConnections.name(c.origin()) + " / " + c.version());
     table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
     table.setPlaceholder(new Label("Chưa có dữ liệu • Thêm sinh viên để bắt đầu demo"));
     table.setRowFactory(
@@ -192,10 +198,36 @@ public final class Desktop extends Application {
       io.execute(
           () -> {
             try {
-              Config config = new Config(path);
-              Platform.runLater(() -> showServerAddresses(config));
-              node = new ServerNode(config);
-              service = node.service;
+              Config saved = new Config(path);
+              LocalNetwork network = LocalNetwork.scan();
+              String selectedInterface = saved.getOrDefault("network.interface", "auto");
+              if (!selectedInterface.equals("auto")
+                  && !network.addresses().contains(selectedInterface))
+                saved = saved.with(Map.of("network.interface", "auto"));
+              serverConfig =
+                  saved.with(
+                      Map.of(
+                          "advertise.host",
+                          network.resolve(saved.getOrDefault("network.interface", "auto"))));
+              String file = java.nio.file.Path.of(path).getFileName().toString();
+              localConfigPath =
+                  java.nio.file.Path.of(path)
+                      .resolveSibling(
+                          file.endsWith(".local.properties")
+                              ? file
+                              : file.endsWith(".properties")
+                                  ? file.replace(".properties", ".local.properties")
+                                  : file + ".local.properties");
+              Config initial = serverConfig;
+              Platform.runLater(
+                  () -> {
+                    serverControls =
+                        new ServerConnections(
+                            initial, network, this::applyServerConfig, this::showInputError);
+                    serverAddresses.getChildren().setAll(serverControls);
+                    serverAddresses.getStyleClass().remove("address-panel");
+                  });
+              restartServer(initial);
             } catch (Exception e) {
               error(e);
             }
@@ -204,48 +236,94 @@ public final class Desktop extends Application {
     io.scheduleWithFixedDelay(this::poll, 0, 400, TimeUnit.MILLISECONDS);
   }
 
-  private void showServerAddresses(Config config) {
-    Label hint =
-        new Label(
-            "Client nhập IP và cổng của server muốn kết nối. Có thể sao chép các ô bên dưới.");
-    hint.setWrapText(true);
-    serverAddresses
-        .getChildren()
-        .setAll(
-            hint,
-            addressRow(
-                config.get("server.id") + " • máy này",
-                config.get("advertise.host"),
-                config.number("registry.port")),
-            addressRow(
-                "Server còn lại", config.get("peer.host"), config.number("peer.registry.port")),
-            new Label(
-                "Cổng RMI máy này: "
-                    + config.number("object.port")
-                    + " • Client dùng tự động, không nhập vào ô Cổng client."));
+  private void restartServer(Config next) throws Exception {
+    service = null;
+    ++generation;
+    ServerNode previousNode;
+    synchronized (lifecycle) {
+      previousNode = node;
+      node = null;
+    }
+    if (previousNode != null) previousNode.close();
+    if (stopped) return;
+    ServerNode candidate = new ServerNode(next);
+    try {
+      if (stopped) {
+        candidate.close();
+        return;
+      }
+      next.save(localConfigPath);
+    } catch (Exception e) {
+      candidate.close();
+      throw e;
+    }
+    synchronized (lifecycle) {
+      if (stopped) {
+        candidate.close();
+        return;
+      }
+      serverConfig = next;
+      node = candidate;
+      service = candidate.service;
+    }
   }
 
-  private HBox addressRow(String caption, String address, int number) {
-    Label label = new Label(caption);
-    label.setPrefWidth(175);
-    TextField ip = new TextField(address);
-    ip.setEditable(false);
-    ip.setPrefWidth(180);
-    TextField registryPort = new TextField(Integer.toString(number));
-    registryPort.setEditable(false);
-    registryPort.setPrefWidth(85);
-    Button copy = new Button("Sao chép IP:cổng");
-    copy.setOnAction(
-        e -> {
-          var content = new javafx.scene.input.ClipboardContent();
-          content.putString(address + ":" + number);
-          javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
-          feedback.setText("Đã sao chép " + address + ":" + number);
+  private void applyServerConfig(Config proposed) {
+    serverControls.setBusy(true);
+    feedback.setText("Đang áp dụng địa chỉ kết nối…");
+    io.execute(
+        () -> {
+          Config previousConfig = serverConfig;
+          try {
+            LocalNetwork network = LocalNetwork.scan();
+            Config next =
+                proposed.with(
+                    Map.of(
+                        "advertise.host",
+                        network.resolve(proposed.getOrDefault("network.interface", "auto"))));
+            restartServer(next);
+            Platform.runLater(
+                () -> {
+                  serverControls.update(network, next);
+                  feedback.setText(
+                      "Đã áp dụng • "
+                          + ServerConnections.name(next.get("server.id"))
+                          + " "
+                          + next.get("advertise.host")
+                          + ":"
+                          + next.get("registry.port"));
+                });
+          } catch (Exception e) {
+            // A busy port or failed save must not leave a working server stopped.
+            try {
+              if (node == null) restartServer(previousConfig);
+            } catch (Exception recovery) {
+              e.addSuppressed(recovery);
+            }
+            error(e);
+          } finally {
+            Platform.runLater(() -> serverControls.setBusy(false));
+          }
         });
-    HBox row =
-        new HBox(10, label, new Label("IP"), ip, new Label("Cổng client"), registryPort, copy);
-    row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-    return row;
+  }
+
+  private void refreshNetwork() throws Exception {
+    if (serverConfig == null || System.nanoTime() < nextNetworkCheck) return;
+    nextNetworkCheck = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+    LocalNetwork network = LocalNetwork.scan();
+    String selected = serverConfig.getOrDefault("network.interface", "auto");
+    if (!selected.equals("auto") && !network.addresses().contains(selected))
+      serverConfig = serverConfig.with(Map.of("network.interface", "auto"));
+    String address = network.resolve(serverConfig.getOrDefault("network.interface", "auto"));
+    if (node == null || !address.equals(serverConfig.get("advertise.host"))) {
+      restartServer(serverConfig.with(Map.of("advertise.host", address)));
+      Platform.runLater(() -> feedback.setText("Đã cập nhật IP máy này: " + address));
+    }
+    Config current = serverConfig;
+    Platform.runLater(
+        () -> {
+          if (serverControls != null) serverControls.update(network, current);
+        });
   }
 
   private void column(String title, java.util.function.Function<Change, String> value) {
@@ -271,7 +349,7 @@ public final class Desktop extends Application {
   }
 
   private void connect() {
-    if (connecting) return;
+    if (connecting || mutating) return;
     final String address = host.getText().trim();
     if (address.isEmpty()) {
       feedback.setText("Nhập IP của server cần kết nối.");
@@ -285,31 +363,19 @@ public final class Desktop extends Application {
       feedback.setText("Cổng phải từ 1 đến 65535");
       return;
     }
-    connecting = true;
     lastEvent = null;
     service = null;
+    clientTarget = new ClientTarget(address, number);
     ++generation;
     actions.forEach(b -> b.setDisable(true));
     connection.setText("Đang kết nối…");
     connectionTarget.setText("Đang kết nối tới " + address + ":" + number);
+    previous.clear();
+    connecting = true;
     io.execute(
         () -> {
           try {
-            var candidate =
-                (IDatabaseSync) LocateRegistry.getRegistry(address, number).lookup("SyncService");
-            candidate.snapshot();
-            service = candidate;
-            Platform.runLater(
-                () -> {
-                  previous.clear();
-                  connectionTarget.setText(
-                      "Server đang dùng: " + address + ":" + number + " • Cổng client (Registry)");
-                  feedback.setText("Đã kết nối " + address + ":" + number);
-                });
-          } catch (Exception e) {
-            Platform.runLater(
-                () -> connectionTarget.setText("Chưa kết nối được " + address + ":" + number));
-            error(e);
+            poll();
           } finally {
             Platform.runLater(() -> connecting = false);
           }
@@ -317,27 +383,45 @@ public final class Desktop extends Application {
   }
 
   private void poll() {
-    var remote = service;
-    if (remote == null) return;
-    long request = generation;
+    if (stopped) return;
     try {
+      if (serverMode) refreshNetwork();
+    } catch (Exception e) {
+      error(e);
+      return;
+    }
+    long request = generation;
+    ClientTarget target = clientTarget;
+    IDatabaseSync remote = service;
+    if (remote == null && (serverMode || target == null)) return;
+    try {
+      if (remote == null)
+        remote =
+            (IDatabaseSync)
+                LocateRegistry.getRegistry(target.host(), target.port()).lookup("SyncService");
       var snap = remote.snapshot();
+      if (request != generation) return;
+      service = remote;
       Platform.runLater(
           () -> {
-            if (remote != service || request != generation) return;
+            if (request != generation) return;
             if (serverMode) {
-              title.setText("Trung tâm đồng bộ • " + snap.serverId());
+              title.setText("Trung tâm đồng bộ • " + ServerConnections.name(snap.serverId()));
               title.setStyle(
                   snap.serverId().endsWith("2")
                       ? "-fx-text-fill: #7449aa;"
                       : "-fx-text-fill: #127e75;");
             }
+            if (!serverMode && target != null)
+              connectionTarget.setText("Server đang dùng: " + target.host() + ":" + target.port());
             connection.setText(
-                "Đã kết nối "
-                    + snap.serverId()
+                (serverMode ? "Đang chạy " : "Đã kết nối ")
+                    + ServerConnections.name(snap.serverId())
                     + "  •  MongoDB: "
                     + snap.database()
-                    + "  •  Server còn lại "
+                    + "  •  "
+                    + ServerConnections.peerName(snap.serverId())
+                    + " "
                     + (snap.peerOnline() ? "ONLINE" : "OFFLINE"));
             stats.setText(
                 snap.rows().size()
@@ -348,8 +432,16 @@ public final class Desktop extends Application {
             if (lastEvent != null && lastEvent.startsWith(snap.serverId() + ":")) {
               feedback.setText(
                   snap.pendingEventIds().contains(lastEvent)
-                      ? "Đã lưu tại server • Đang chờ server còn lại xác nhận"
-                      : "Đã lưu tại server • Server còn lại đã xác nhận đồng bộ");
+                      ? "Đã lưu tại "
+                          + ServerConnections.name(snap.serverId())
+                          + " • Chờ "
+                          + ServerConnections.peerName(snap.serverId())
+                          + " xác nhận"
+                      : "Đã lưu tại "
+                          + ServerConnections.name(snap.serverId())
+                          + " • "
+                          + ServerConnections.peerName(snap.serverId())
+                          + " đã xác nhận đồng bộ");
             }
             changed.clear();
             for (var c : snap.rows()) {
@@ -370,10 +462,14 @@ public final class Desktop extends Application {
             actions.forEach(b -> b.setDisable(mutating));
           });
     } catch (Exception e) {
+      // A restarted server exports a new RMI object: discard the old stub and look up again.
+      if (!serverMode && request == generation) service = null;
       Platform.runLater(
           () -> {
-            if (remote != service || request != generation) return;
+            if (request != generation) return;
             connection.setText("Mất kết nối server / MongoDB • Đang thử lại");
+            if (!serverMode && target != null)
+              connectionTarget.setText("Đang kết nối lại " + target.host() + ":" + target.port());
             actions.forEach(b -> b.setDisable(true));
           });
     }
@@ -440,7 +536,7 @@ public final class Desktop extends Application {
   private void showInputError(String message) {
     feedback.setText(message);
     Alert alert = new Alert(Alert.AlertType.WARNING, message, ButtonType.OK);
-    alert.setTitle("Chưa thể lưu sinh viên");
+    alert.setTitle("Kiểm tra thông tin");
     alert.setHeaderText("Kiểm tra dữ liệu nhập");
     alert.initOwner(table.getScene().getWindow());
     alert.show();
@@ -456,7 +552,12 @@ public final class Desktop extends Application {
   }
 
   public void stop() {
+    stopped = true;
     io.shutdownNow();
-    if (node != null) node.close();
+    synchronized (lifecycle) {
+      if (node != null) node.close();
+      node = null;
+      service = null;
+    }
   }
 }

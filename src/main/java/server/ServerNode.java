@@ -1,6 +1,7 @@
 package server;
 
 import common.Config;
+import common.RmiNetwork;
 import dao.StudentDAO;
 import java.rmi.registry.*;
 import java.rmi.server.UnicastRemoteObject;
@@ -11,9 +12,7 @@ public final class ServerNode implements AutoCloseable {
 
   public ServerNode(Config c) throws Exception {
     System.setProperty("java.rmi.server.hostname", c.get("advertise.host"));
-    System.setProperty("sun.rmi.transport.tcp.responseTimeout", "2500");
-    System.setProperty("sun.rmi.transport.tcp.handshakeTimeout", "2500");
-    System.setProperty("sun.rmi.transport.connectionTimeout", "2500");
+    RmiNetwork.configure();
     var dao = new StudentDAO(c.get("mongo.uri"), c.get("mongo.database"));
     DatabaseSyncImpl candidate = null;
     Registry reg = null;

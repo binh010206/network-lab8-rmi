@@ -37,7 +37,8 @@ if(!$java){$java=Join-Path (Get-LabJavaHome -ProjectRoot $root) 'bin/java.exe'}
 $ruleArgs=@{
  Enabled='True'; Direction='Inbound'; Action='Allow'; Protocol='TCP'
  LocalPort=@([int]$c['registry.port'],[int]$c['object.port'])
- LocalAddress=$c['advertise.host']; RemoteAddress='LocalSubnet'
+ # DHCP can change the local IP. Keep access limited to the LAN, Java and these two ports.
+ LocalAddress='Any'; RemoteAddress='LocalSubnet'
  Profile=@('Public','Private'); Program=$java
 }
 if(Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue){

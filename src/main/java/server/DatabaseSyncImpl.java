@@ -18,6 +18,7 @@ public final class DatabaseSyncImpl extends UnicastRemoteObject
   private final Deque<String> logs = new ArrayDeque<>();
   private volatile boolean online;
   private volatile long ackMillis = -1;
+  private String lastSyncError;
 
   public DatabaseSyncImpl(Config c, StudentDAO dao) throws RemoteException {
     super(c.number("object.port"));
@@ -135,12 +136,22 @@ public final class DatabaseSyncImpl extends UnicastRemoteObject
           received++;
         }
       if (received > 0) log("Nhận " + received + " thay đổi từ " + remote.serverId());
-      if (!online) log("Peer đã kết nối");
+      if (!online) log(peerName() + " đã kết nối");
+      lastSyncError = null;
       online = true;
     } catch (Exception e) {
-      if (online) log("Peer mất kết nối hoặc đồng bộ lỗi: " + e.getClass().getSimpleName());
+      Throwable cause = e;
+      while (cause.getCause() != null) cause = cause.getCause();
+      String reason = cause.getClass().getSimpleName();
+      if (!reason.equals(lastSyncError))
+        log(peerName() + " OFFLINE (" + peerHost + ":" + peerPort + ") • " + reason);
+      lastSyncError = reason;
       online = false;
     }
+  }
+
+  private String peerName() {
+    return id.equals("SERVER_1") ? "Server 2" : "Server 1";
   }
 
   public void close() {
