@@ -1,0 +1,7 @@
+{
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "code-runner.executorMap": {
+    "java": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$workspaceRoot/scripts/run-code.ps1\" -Source \"$fullFileName\""
+  },
+  "code-runner.ignoreSelection": true
+}
