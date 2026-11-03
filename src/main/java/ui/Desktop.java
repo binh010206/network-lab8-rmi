@@ -166,7 +166,7 @@ public final class Desktop extends Application {
     if (serverMode) {
       String selection;
       if (getParameters().getRaw().isEmpty()) {
-        ChoiceDialog<String> chooser = new ChoiceDialog<>("Server 1", "Server 1", "Server 2");
+        ChoiceDialog<String> chooser = new ChoiceDialog<>(null, "Server 1", "Server 2");
         chooser.setTitle("Chọn máy chủ");
         chooser.setHeaderText("Máy này chạy Server nào?");
         chooser.setContentText("Máy chủ:");

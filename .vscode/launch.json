@@ -5,10 +5,7 @@
       "type": "java",
       "name": "Server 1",
       "request": "launch",
-      "mainClass": "server.RMIServerApp",
-      "args": [
-        "1"
-      ],
+      "mainClass": "server.Server1App",
       "cwd": "${workspaceFolder}",
       "console": "internalConsole"
     },
@@ -16,10 +13,7 @@
       "type": "java",
       "name": "Server 2",
       "request": "launch",
-      "mainClass": "server.RMIServerApp",
-      "args": [
-        "2"
-      ],
+      "mainClass": "server.Server2App",
       "cwd": "${workspaceFolder}",
       "console": "internalConsole"
     },
