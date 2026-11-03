@@ -164,10 +164,27 @@ public final class Desktop extends Application {
     stage.setMinHeight(720);
     stage.show();
     if (serverMode) {
-      String path =
-          getParameters().getRaw().isEmpty()
-              ? "config/server1.properties"
-              : getParameters().getRaw().getFirst();
+      String selection;
+      if (getParameters().getRaw().isEmpty()) {
+        ChoiceDialog<String> chooser = new ChoiceDialog<>("Server 1", "Server 1", "Server 2");
+        chooser.setTitle("Chọn máy chủ");
+        chooser.setHeaderText("Máy này chạy Server nào?");
+        chooser.setContentText("Máy chủ:");
+        var selected = chooser.showAndWait();
+        if (selected.isEmpty()) {
+          Platform.exit();
+          return;
+        }
+        selection = selected.get().endsWith("2") ? "2" : "1";
+      } else selection = getParameters().getRaw().getFirst();
+      final String path;
+      if (selection.equals("1") || selection.equals("2")) {
+        String local = "config/server" + selection + ".local.properties";
+        path =
+            java.nio.file.Files.exists(java.nio.file.Path.of(local))
+                ? local
+                : "config/server" + selection + ".properties";
+      } else path = selection;
       io.execute(
           () -> {
             try {

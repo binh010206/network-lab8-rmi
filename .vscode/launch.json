@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Server 1",
+      "request": "launch",
+      "mainClass": "server.RMIServerApp",
+      "args": [
+        "1"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "type": "java",
+      "name": "Server 2",
+      "request": "launch",
+      "mainClass": "server.RMIServerApp",
+      "args": [
+        "2"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "type": "java",
+      "name": "Client",
+      "request": "launch",
+      "mainClass": "client.RMIClientApp",
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    }
+  ]
+}
