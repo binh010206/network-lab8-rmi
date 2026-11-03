@@ -21,9 +21,11 @@ public class ReplicationTest {
   void validatesRealInput() {
     student(3.8).validate();
     assertThrows(IllegalArgumentException.class, () -> student(Double.NaN).validate());
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> new StudentRecord("x", "Tên", "bad", "IT", 2).validate());
+    var invalidEmail =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new StudentRecord("1412313", "binh", "124@", "HGF", 2).validate());
+    assertTrue(invalidEmail.getMessage().startsWith("Email"));
   }
 
   @Test

@@ -232,6 +232,7 @@ public final class Desktop extends Application {
       return;
     }
     connecting = true;
+    lastEvent = null;
     service = null;
     ++generation;
     actions.forEach(b -> b.setDisable(true));
@@ -273,10 +274,11 @@ public final class Desktop extends Application {
                       : "-fx-text-fill: #127e75;");
             }
             connection.setText(
-                snap.serverId()
+                "Đã kết nối "
+                    + snap.serverId()
                     + "  •  MongoDB: "
                     + snap.database()
-                    + "  •  Peer "
+                    + "  •  Server còn lại "
                     + (snap.peerOnline() ? "ONLINE" : "OFFLINE"));
             stats.setText(
                 snap.rows().size()
@@ -320,6 +322,7 @@ public final class Desktop extends Application {
 
   private void mutate(String action) {
     if (mutating || service == null) return;
+    lastEvent = null;
     final StudentRecord s;
     try {
       s =
@@ -330,8 +333,13 @@ public final class Desktop extends Application {
               major.getText().trim(),
               Double.parseDouble(gpa.getText().trim()));
       s.validate();
-    } catch (Exception e) {
-      feedback.setText("Kiểm tra mã SV, họ tên, email, ngành và GPA từ 0 đến 4.");
+    } catch (NumberFormatException e) {
+      showInputError("GPA phải là số từ 0 đến 4. Ví dụ: 3.5.");
+      gpa.requestFocus();
+      return;
+    } catch (IllegalArgumentException e) {
+      showInputError(e.getMessage());
+      if (e.getMessage().startsWith("Email")) email.requestFocus();
       return;
     }
     if (!action.equals("INSERT")) {
@@ -368,6 +376,15 @@ public final class Desktop extends Application {
             Platform.runLater(() -> mutating = false);
           }
         });
+  }
+
+  private void showInputError(String message) {
+    feedback.setText(message);
+    Alert alert = new Alert(Alert.AlertType.WARNING, message, ButtonType.OK);
+    alert.setTitle("Chưa thể lưu sinh viên");
+    alert.setHeaderText("Kiểm tra dữ liệu nhập");
+    alert.initOwner(table.getScene().getWindow());
+    alert.show();
   }
 
   private void error(Exception e) {
