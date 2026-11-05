@@ -29,8 +29,8 @@ class NetworkConfigTest {
         "server.id=SERVER_1\n"
             + "advertise.host=192.0.2.10\n"
             + "peer.host=192.0.2.20\n"
-            + "mongo.uri=mongodb://127.0.0.1:27017/?connectTimeoutMS=2000\n"
-            + "mongo.database=lab8_server1\n";
+            + "db.url=jdbc:postgresql://127.0.0.1:5432/lab8_server1\n"
+            + "db.user=lab8_server1\n";
     Files.writeString(template, original);
     Config base = new Config(template.toString());
     Config edited =
@@ -46,8 +46,8 @@ class NetworkConfigTest {
     Config restored = new Config(local.toString());
     assertEquals("198.51.100.10", restored.get("advertise.host"));
     assertEquals("198.51.100.20", restored.get("peer.host"));
-    assertEquals(base.get("mongo.uri"), restored.get("mongo.uri"));
-    assertEquals(base.get("mongo.database"), restored.get("mongo.database"));
+    assertEquals(base.get("db.url"), restored.get("db.url"));
+    assertEquals(base.get("db.user"), restored.get("db.user"));
     assertEquals("192.0.2.10", base.get("advertise.host"));
     assertEquals(original, Files.readString(template));
     edited.with(Map.of("peer.host", "198.51.100.21")).save(local);

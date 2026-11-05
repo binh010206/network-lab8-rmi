@@ -38,6 +38,12 @@ public final class Config {
     return result;
   }
 
+  public Config without(String... keys) {
+    Config result = new Config(values);
+    for (String key : keys) result.values.remove(key);
+    return result;
+  }
+
   public void save(Path path) throws IOException {
     Path target = path.toAbsolutePath();
     Path temp = Files.createTempFile(target.getParent(), "network-", ".tmp");

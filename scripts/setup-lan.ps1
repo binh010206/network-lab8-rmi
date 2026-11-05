@@ -6,7 +6,8 @@ if($LocalIP -and $PeerIP){
  $localAddress=[System.Net.IPAddress]::Parse($LocalIP)
  $peerAddress=[System.Net.IPAddress]::Parse($PeerIP)
  if($localAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork -or $peerAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork){throw 'Can nhap dia chi IPv4.'}
- $template=Get-Content (Join-Path $root "config/server$Node.properties") -Raw
+ $source=if(Test-Path -LiteralPath $localFile){$localFile}else{Join-Path $root "config/server$Node.properties"}
+ $template=Get-Content -LiteralPath $source -Raw
  $template=$template -replace '(?m)^advertise.host=.*$',("advertise.host="+$LocalIP)
  $template=$template -replace '(?m)^peer.host=.*$',("peer.host="+$PeerIP)
  [System.IO.File]::WriteAllText($localFile,$template,[System.Text.UTF8Encoding]::new($false))
@@ -16,13 +17,13 @@ $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 $admin=([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if(!$admin){
  $p=Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+$PSCommandPath+'"'),'-Node',$Node) -Wait -PassThru
- if($p.ExitCode -ne 0){throw 'Cau hinh that bai. Kiem tra MongoDB da cai va chap nhan quyen Administrator.'}
- Write-Host 'Da cau hinh MongoDB va cong RMI. Mo run-server tuong ung trong scripts.'
+ if($p.ExitCode -ne 0){throw 'Cau hinh that bai. Kiem tra PostgreSQL da cai va chap nhan quyen Administrator.'}
+ Write-Host 'Da cau hinh PostgreSQL va cong RMI. Mo run-server tuong ung trong scripts.'
  exit 0
 }
 $c=@{}
 Get-Content $localFile | ForEach-Object {if($_ -match '^([^#=]+)=(.*)$'){$c[$matches[1].Trim()]=$matches[2].Trim()}}
-Start-Service MongoDB
+Get-Service -Name 'postgresql*' -ErrorAction SilentlyContinue | Start-Service
 $name="Lab8 RMI Server$Node LAN"
 . (Join-Path $PSScriptRoot 'java-runtime.ps1')
 # Prefer the process actually listening for this server; F5 may use VS Code's JDK.

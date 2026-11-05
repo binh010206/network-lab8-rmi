@@ -10,7 +10,7 @@ public record StudentRecord(String id, String name, String email, String major, 
           "Mã sinh viên cần 1–40 ký tự: chữ, số, dấu gạch ngang hoặc gạch dưới.");
     if (name == null || name.isBlank() || name.length() > 100)
       throw new IllegalArgumentException("Họ tên không được để trống và tối đa 100 ký tự.");
-    if (email == null || !email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
+    if (email == null || email.length() > 254 || !email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
       throw new IllegalArgumentException("Email chưa hợp lệ. Ví dụ: binh@example.com.");
     if (major == null || major.isBlank() || major.length() > 100)
       throw new IllegalArgumentException("Ngành học không được để trống và tối đa 100 ký tự.");

@@ -24,7 +24,7 @@ public final class DatabaseSyncImpl extends UnicastRemoteObject
     super(c.number("object.port"));
     this.dao = dao;
     id = c.get("server.id");
-    database = c.get("mongo.database");
+    database = c.get("db.user");
     peerHost = c.get("peer.host");
     peerPort = c.number("peer.registry.port");
   }
@@ -49,14 +49,14 @@ public final class DatabaseSyncImpl extends UnicastRemoteObject
       return new Snapshot(
           id,
           database,
-          materialize(dao.all()).values().stream().filter(e -> !e.deleted()).toList(),
+          dao.students(),
           dao.countPending(id),
           dao.pending(id).stream().map(Change::eventId).toList(),
           online,
           ackMillis,
           List.copyOf(logs));
     } catch (RuntimeException e) {
-      throw new RemoteException("Không đọc được MongoDB", e);
+      throw new RemoteException("Không đọc được PostgreSQL", e);
     }
   }
 

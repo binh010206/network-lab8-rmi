@@ -417,7 +417,7 @@ public final class Desktop extends Application {
             connection.setText(
                 (serverMode ? "Đang chạy " : "Đã kết nối ")
                     + ServerConnections.name(snap.serverId())
-                    + "  •  MongoDB: "
+                    + "  •  PostgreSQL: "
                     + snap.database()
                     + "  •  "
                     + ServerConnections.peerName(snap.serverId())
@@ -467,7 +467,7 @@ public final class Desktop extends Application {
       Platform.runLater(
           () -> {
             if (request != generation) return;
-            connection.setText("Mất kết nối server / MongoDB • Đang thử lại");
+            connection.setText("Mất kết nối server / PostgreSQL • Đang thử lại");
             if (!serverMode && target != null)
               connectionTarget.setText("Đang kết nối lại " + target.host() + ":" + target.port());
             actions.forEach(b -> b.setDisable(true));
@@ -547,7 +547,7 @@ public final class Desktop extends Application {
         () -> {
           String message = e.getMessage();
           feedback.setText("Lỗi: " + (message == null ? e.getClass().getSimpleName() : message));
-          connection.setText("Kiểm tra cấu hình, kết nối MongoDB và máy chủ");
+          connection.setText("Kiểm tra cấu hình, kết nối PostgreSQL và máy chủ");
         });
   }
 

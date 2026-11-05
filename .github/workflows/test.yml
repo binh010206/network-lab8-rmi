@@ -1,15 +1,23 @@
-name: Java RMI integration
+name: Java RMI and PostgreSQL integration
 on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
-      mongo1:
-        image: mongo:8.0.4
-        ports: ["27017:27017"]
-      mongo2:
-        image: mongo:8.0.4
-        ports: ["27018:27017"]
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: CiPostgresAdmin_12345
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      LAB8_PG_ADMIN_PASSWORD: CiPostgresAdmin_12345
+      LAB8_TEST_PASSWORD: CiPostgresTest_12345
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -17,4 +25,8 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - name: Prepare isolated test databases
+        run: |
+          mvn --batch-mode -q compile dependency:build-classpath -Dmdep.outputFile=target/classpath.txt
+          java -cp "target/classes:$(cat target/classpath.txt)" setup.PostgresSetup test
       - run: mvn --batch-mode test -Dlab8.integration=true

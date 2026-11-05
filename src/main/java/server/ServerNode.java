@@ -13,7 +13,7 @@ public final class ServerNode implements AutoCloseable {
   public ServerNode(Config c) throws Exception {
     System.setProperty("java.rmi.server.hostname", c.get("advertise.host"));
     RmiNetwork.configure();
-    var dao = new StudentDAO(c.get("mongo.uri"), c.get("mongo.database"));
+    var dao = new StudentDAO(c);
     DatabaseSyncImpl candidate = null;
     Registry reg = null;
     try {
